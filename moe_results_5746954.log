@@ -1,0 +1,30 @@
+--- Initializing Environment ---
+--- Running Correctness Tests ---
+============================= test session starts ==============================
+platform linux -- Python 3.10.20, pytest-9.0.2, pluggy-1.6.0 -- /users/7/puroh029/.conda/envs/moe_project/bin/python3
+cachedir: .pytest_cache
+rootdir: /users/7/puroh029/MSI/moe_project
+collecting ... collected 9 items
+
+tests/test_correctness.py::test_invalid_config PASSED                    [ 11%]
+tests/test_correctness.py::test_router_validity PASSED                   [ 22%]
+tests/test_correctness.py::test_dispatch_coverage PASSED                 [ 33%]
+tests/test_correctness.py::test_empty_experts PASSED                     [ 44%]
+tests/test_correctness.py::test_dispatch_combine_correctness PASSED      [ 55%]
+tests/test_correctness.py::test_zero_tokens PASSED                       [ 66%]
+tests/test_correctness.py::test_routing_modes PASSED                     [ 77%]
+tests/test_correctness.py::test_determinism PASSED                       [ 88%]
+tests/test_correctness.py::test_triton_vs_pt_correctness PASSED          [100%]
+
+============================== 9 passed in 4.88s ===============================
+--- Running Performance Benchmarks ---
+Benchmarking PyTorch Native MoE Dispatch vs Triton on CUDA
+-----------------------------------------------------------------
+Seq Len    | Hidden   | Experts  | TopK  | PT (ms)    | Triton (ms)
+-----------------------------------------------------------------
+512        | 1024     | 8        | 2     | 0.248 ms | 0.263 ms
+1024       | 1024     | 8        | 2     | 0.253 ms | 0.262 ms
+2048       | 1024     | 8        | 2     | 0.263 ms | 0.270 ms
+4096       | 1024     | 8        | 2     | 0.326 ms | 0.321 ms
+8192       | 1024     | 8        | 2     | 0.373 ms | 0.309 ms
+--- Job Complete ---
