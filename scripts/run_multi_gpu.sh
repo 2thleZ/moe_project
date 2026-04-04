@@ -17,6 +17,6 @@ source activate moe_project
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 echo "--- Running Distributed Benchmarks (2 GPUs) ---"
-torchrun --nproc_per_node=2 benchmarks/bench_multi_gpu.py
+python3 -m torch.distributed.run --nproc_per_node=2 benchmarks/bench_multi_gpu.py
 
 echo "--- Job Complete ---"

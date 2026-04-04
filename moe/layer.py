@@ -11,6 +11,7 @@ class MoELayer(nn.Module):
         self.config = config
         self.router = TopKRouter(config)
         self.expert_layer = ExpertLayer(config)
+        self.to(device=config.device, dtype=config.dtype)
 
     def forward(self, x: torch.Tensor):
         """

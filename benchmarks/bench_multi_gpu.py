@@ -29,7 +29,7 @@ def benchmark_multi_gpu():
         top_k=top_k, 
         device="cuda"
     )
-    layer = DistributedMoELayer(config).to(local_rank)
+    layer = DistributedMoELayer(config).to(device=local_rank, dtype=config.dtype)
     
     if local_rank == 0:
         print(f"Benchmarking Multi-GPU EP MoE via Distributed NCCL on {world_size} GPUs")

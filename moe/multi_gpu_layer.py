@@ -36,6 +36,7 @@ class DistributedMoELayer(nn.Module):
             routing_mode=config.routing_mode
         )
         self.local_experts = ExpertLayer(local_config)
+        self.to(dtype=config.dtype)
         
     def forward(self, x: torch.Tensor):
         num_tokens, hidden_dim = x.shape
