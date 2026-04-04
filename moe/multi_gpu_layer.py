@@ -38,11 +38,28 @@ class DistributedMoELayer(nn.Module):
         self.local_experts = ExpertLayer(local_config)
         self.to(dtype=config.dtype)
         
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, return_timings: bool = False):
         num_tokens, hidden_dim = x.shape
+        timings = {}
         
+        def get_time(start, end):
+            torch.cuda.synchronize()
+            return start.elapsed_time(end)
+
+        if return_timings:
+            ev_start = torch.cuda.Event(enable_timing=True)
+            ev_routing_end = torch.cuda.Event(enable_timing=True)
+            ev_dispatch_end = torch.cuda.Event(enable_timing=True)
+            ev_nccl_fw_end = torch.cuda.Event(enable_timing=True)
+            ev_expert_end = torch.cuda.Event(enable_timing=True)
+            ev_nccl_bw_end = torch.cuda.Event(enable_timing=True)
+            ev_combine_end = torch.cuda.Event(enable_timing=True)
+            ev_start.record()
+
         # 1. Local Routing (All GPUs execute simultaneously on their chunk of batch size)
         routing_weights, selected_experts = self.router(x)
+        
+        if return_timings: ev_routing_end.record()
         
         # 2. Determine target ranks for network addressing
         # e.g., if expert 5 is assigned, and we have 4 experts per rank, it goes to rank 1.
@@ -57,10 +74,14 @@ class DistributedMoELayer(nn.Module):
         flat_experts = selected_experts.view(-1)
         dispatched_experts = flat_experts[network_sort_indices].unsqueeze(1)
         
+        if return_timings: ev_dispatch_end.record()
+        
         # 4. NETWORK EXCHANGE (NVLink/NCCL Cross-GPU Send) --> See distributed.py
         recv_tokens, recv_expert_ids, recv_counts, send_sqls, recv_sqls = all_to_all_forward(
             dispatched_x, dispatched_experts, rank_counts, self.world_size
         )
+        
+        if return_timings: ev_nccl_fw_end.record()
         
         # 5. Local Compute (Process whatever we just received over the network)
         # Shift global expert IDs down to their relative 0-indexed local index
@@ -85,10 +106,27 @@ class DistributedMoELayer(nn.Module):
         dummy_weights = torch.ones(recv_tokens.shape[0], 1, dtype=recv_tokens.dtype, device=recv_tokens.device)
         processed_recv_tokens = pt_combine(expert_outputs, local_sort_indices, dummy_weights)
         
+        if return_timings: ev_expert_end.record()
+        
         # 6. NETWORK EXCHANGE (Reverse NVLink/NCCL Cross-GPU Send)
         returned_tokens = all_to_all_backward(processed_recv_tokens, send_sqls, recv_sqls)
+        
+        if return_timings: ev_nccl_bw_end.record()
         
         # 7. Final Output Combine (Un-permute network sort locally and apply original weights)
         combined_x = pt_combine(returned_tokens, network_sort_indices, routing_weights)
         
+        if return_timings:
+            ev_combine_end.record()
+            torch.cuda.synchronize()
+            timings = {
+                "routing": ev_start.elapsed_time(ev_routing_end),
+                "dispatch": ev_routing_end.elapsed_time(ev_dispatch_end),
+                "nccl_fw": ev_dispatch_end.elapsed_time(ev_nccl_fw_end),
+                "expert_compute": ev_nccl_fw_end.elapsed_time(ev_expert_end),
+                "nccl_bw": ev_expert_end.elapsed_time(ev_nccl_bw_end),
+                "combine": ev_nccl_bw_end.elapsed_time(ev_combine_end)
+            }
+            return combined_x, timings
+            
         return combined_x
