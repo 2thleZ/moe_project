@@ -1,4 +1,6 @@
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')  # required for headless SLURM compute nodes
 import matplotlib.pyplot as plt
 import os
 
@@ -10,7 +12,7 @@ def plot_results():
 
     df = pd.read_csv(csv_path)
     
-    # 1. Total Latency vs Sequence Length
+    # plot total latency vs sequence length
     plt.figure(figsize=(10, 6))
     plt.plot(df['seq_len'], df['total_ms'], marker='o', linestyle='-', color='b')
     plt.title('Total Multi-GPU MoE Latency vs Sequence Length')
@@ -20,7 +22,7 @@ def plot_results():
     plt.savefig('benchmarks/latency_vs_seqlen.png')
     print("Saved benchmarks/latency_vs_seqlen.png")
 
-    # 2. Stacked Bar Chart for Latency Breakdown
+    # plot stacked bar chart for latency breakdown
     stages = ['routing', 'dispatch', 'nccl_fw', 'expert_compute', 'nccl_bw', 'combine']
     colors = ['#FF9999', '#66B2FF', '#99FF99', '#FFCC99', '#FF99FF', '#C2C2F0']
     

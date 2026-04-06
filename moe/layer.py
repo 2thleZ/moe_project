@@ -17,16 +17,16 @@ class MoELayer(nn.Module):
         """
         x: [num_tokens, hidden_dim]
         """
-        # 1. Routing
+        # map tokens to experts
         routing_weights, selected_experts = self.router(x)
         
-        # 2. Dispatch
+        # dispatch tokens to experts
         # dispatched_x: [num_tokens * top_k, hidden_dim]
         dispatched_x, expert_counts, sort_indices = pt_dispatch(
             x, selected_experts, self.config.num_experts
         )
         
-        # 3. Expert Compute
+        # compute expert outputs
         expert_outputs = torch.empty_like(dispatched_x)
         offset = 0
         for i in range(self.config.num_experts):
@@ -37,7 +37,7 @@ class MoELayer(nn.Module):
                 expert_outputs[offset:offset+count] = expert_out
                 offset += count
                 
-        # 4. Combine
+        # combine expert outputs
         combined_x = pt_combine(expert_outputs, sort_indices, routing_weights)
         
         return combined_x

@@ -45,14 +45,14 @@ def benchmark_multi_gpu():
     for seq_len in seq_lens:
         x = torch.randn(seq_len, hidden_dim, device=local_rank, dtype=config.dtype)
         
-        # Warmup
+        # execute warmup iterations
         for _ in range(5):
             _ = layer(x)
             
         dist.barrier()
         torch.cuda.synchronize()
         
-        # Timing accumulation
+        # initialize timing accumulators
         accum_timings = {
             "routing": 0.0, "dispatch": 0.0, "nccl_fw": 0.0,
             "expert_compute": 0.0, "nccl_bw": 0.0, "combine": 0.0
@@ -83,7 +83,7 @@ def benchmark_multi_gpu():
             })
             
     if local_rank == 0:
-        # Save to CSV for plotting
+        # serialize results to csv
         with open("benchmarks/results_breakdown.csv", "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=["seq_len", "total_ms", "routing", "dispatch", "nccl_fw", "expert_compute", "nccl_bw", "combine"])
             writer.writeheader()

@@ -14,7 +14,7 @@ class ExpertMLP(nn.Module):
         return self.w2(self.act(self.w1(x)))
 
 class ExpertLayer(nn.Module):
-    """Container for multiple experts running on a single GPU."""
+    """container for multiple experts running on a single GPU."""
     def __init__(self, config: MoEConfig):
         super().__init__()
         self.experts = nn.ModuleList([ExpertMLP(config) for _ in range(config.num_experts)])

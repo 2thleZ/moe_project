@@ -10,7 +10,7 @@ except ImportError:
 
 def benchmark_pt_dispatch():
     """Benchmark raw PyTorch MoE memory dispatch bandwidth."""
-    # Settings sweeps
+    # define sweep parameters
     seq_lens = [512, 1024, 2048, 4096, 8192]
     hidden_dim = 1024
     num_experts = 8
@@ -24,12 +24,10 @@ def benchmark_pt_dispatch():
     
     for seq_len in seq_lens:
         x = torch.randn(seq_len, hidden_dim, device=device, dtype=torch.bfloat16 if device == "cuda" else torch.float32)
-        # Random routing assignments
+        # initialize random routing assignments
         experts = torch.randint(0, num_experts, (seq_len, top_k), device=device)
         
-        # Warmup
-        for _ in range(5):
-            _ = pt_dispatch(x, experts, num_experts)
+        # execute warmup iterations
             
         if device == "cuda":
             torch.cuda.synchronize()
@@ -45,13 +43,8 @@ def benchmark_pt_dispatch():
         end = time.time()
         avg_ms_pt = ((end - start) / iters) * 1000
         
-        # Benchmark Triton
-        avg_ms_triton = "N/A"
-        if HAS_TRITON and device == "cuda":
-            # Warmup
-            for _ in range(5):
-                _ = triton_dispatch(x, experts, num_experts)
-            torch.cuda.synchronize()
+        # benchmark triton implementation if available
+            # execute warmup iterations
             
             start_triton = time.time()
             for _ in range(iters):

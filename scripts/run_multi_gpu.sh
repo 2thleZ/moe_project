@@ -14,7 +14,7 @@ echo "--- Initializing Environment ---"
 module load python3
 source activate moe_project
 
-# Ensure dependencies are installed
+# verify dependencies are installed
 for pkg in pytest pandas matplotlib; do
     if ! python3 -c "import $pkg" &>/dev/null; then
         echo "Installing missing dependency: $pkg..."

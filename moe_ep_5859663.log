@@ -1,0 +1,23 @@
+--- Initializing Environment ---
+--- Running Distributed Benchmarks (2 GPUs) ---
+
+*****************************************
+Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+*****************************************
+Benchmarking Multi-GPU EP MoE (Expert Parallelism) on 2 GPUs
+--------------------------------------------------------------------------------------------------------------
+Seq Len    | Total(ms)  | Router     | Dispatch   | NCCL FW    | Compute    | NCCL BW    | Combine   
+--------------------------------------------------------------------------------------------------------------
+/users/7/puroh029/.local/lib/python3.10/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+512        | 3.641      | 0.287      | 0.477      | 0.503      | 1.701      | 0.208      | 0.254     
+1024       | 3.943      | 0.287      | 0.492      | 0.705      | 1.749      | 0.311      | 0.181     
+2048       | 3.921      | 0.287      | 0.493      | 0.537      | 1.917      | 0.234      | 0.235     
+4096       | 4.216      | 0.288      | 0.561      | 0.539      | 2.089      | 0.302      | 0.223     
+8192       | 5.218      | 0.294      | 0.565      | 0.705      | 2.792      | 0.359      | 0.305     
+
+Results saved to benchmarks/results_breakdown.csv
+--- Generating Results Plots ---
+Saved benchmarks/latency_vs_seqlen.png
+Saved benchmarks/latency_breakdown.png
+--- Job Complete ---

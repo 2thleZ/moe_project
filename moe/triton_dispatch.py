@@ -16,24 +16,24 @@ def gather_kernel(
     PyTorch's advanced indexing `x[indices]` can be highly unoptimized.
     This kernel reads from `x` according to `sort_indices` and writes sequentially to `out`.
     """
-    # Program ID represents the output token index
+    # program ID identifies the output token index
     pid = tl.program_id(axis=0) 
     
-    # Load the original token index from the sorted indices array
-    # If top_k > 1, sort_indices ranges from 0 to (num_tokens * top_k - 1)
-    # The actual token in x is original_index // top_k
+    # load original token index from sorted indices array
+    # offset ranges account for top_k duplication
+    # derive actual token input index
     flat_idx = tl.load(sort_indices_ptr + pid)
     token_idx = flat_idx // top_k
     
-    # Offsets for memory block
+    # compute offsets for memory block
     offsets = tl.arange(0, BLOCK_SIZE)
     mask = offsets < hidden_dim
     
-    # Read the row from input
+    # fetch row from input tensor
     x_ptrs = x_ptr + (token_idx * hidden_dim) + offsets
     row = tl.load(x_ptrs, mask=mask, other=0.0)
     
-    # Write the row sequentially to output buffer
+    # store row sequentially to output buffer
     out_ptrs = out_ptr + (pid * hidden_dim) + offsets
     tl.store(out_ptrs, row, mask=mask)
 
@@ -45,19 +45,19 @@ def triton_dispatch(x: torch.Tensor, selected_experts: torch.Tensor, num_experts
     num_tokens, top_k = selected_experts.shape
     hidden_dim = x.shape[1]
     
-    # 1. Compute offsets in PyTorch using fast argsort
+    # compute permutation indices
     flat_experts = selected_experts.view(-1)
     sort_indices = torch.argsort(flat_experts).to(torch.int32)
     expert_counts = torch.bincount(flat_experts, minlength=num_experts)
     
-    # 2. Allocate output memory
+    # allocate output buffer
     dispatched_x = torch.empty((num_tokens * top_k, hidden_dim), device=x.device, dtype=x.dtype)
     
-    # 3. Launch Triton Kernel
-    # Grid size = total output rows
+    # dispatch triton kernel
+    # define grid bounds
     grid = (num_tokens * top_k,)
     
-    # Adjust BLOCK_SIZE to nearest power of 2 >= hidden_dim
+    # align block size to nearest power of 2
     BLOCK_SIZE = triton.next_power_of_2(hidden_dim)
     
     gather_kernel[grid](

@@ -20,11 +20,11 @@ class DistributedMoELayer(nn.Module):
             
         self.experts_per_rank = config.num_experts // self.world_size
         
-        # Router is identically replicated across all GPUs (DP-style)
+        # identically replicate router across all GPUs (DP-style)
         self.router = TopKRouter(config)
         
-        # Local experts only (EP-style)
-        # Re-use config but override the expert count for strict VRAM containment
+        # load local experts only (EP-style)
+        # override the expert count for strict VRAM containment
         local_config = MoEConfig(
             hidden_dim=config.hidden_dim,
             ffn_dim=config.ffn_dim,
@@ -56,38 +56,38 @@ class DistributedMoELayer(nn.Module):
             ev_combine_end = torch.cuda.Event(enable_timing=True)
             ev_start.record()
 
-        # 1. Local Routing (All GPUs execute simultaneously on their chunk of batch size)
+        # route locally (GPUs execute simultaneously on their chunk of batch size)
         routing_weights, selected_experts = self.router(x)
         
         if return_timings: ev_routing_end.record()
         
-        # 2. Determine target ranks for network addressing
-        # e.g., if expert 5 is assigned, and we have 4 experts per rank, it goes to rank 1.
+        # compute target ranks for network addressing
+        # example: if expert 5 is assigned to a layer with 4 experts per rank, it resolves to rank 1.
         target_ranks = selected_experts // self.experts_per_rank
         
-        # 3. Sort/Group tokens by Target Rank to package them for networking
+        # sort and group tokens by target rank to prepare for networking
         dispatched_x, rank_counts, network_sort_indices = pt_dispatch(
             x, target_ranks, self.world_size
         )
         
-        # Flatten expert associations to pair them up with grouped tokens
+        # flatten expert associations to pair with grouped tokens
         flat_experts = selected_experts.view(-1)
         dispatched_experts = flat_experts[network_sort_indices].unsqueeze(1)
         
         if return_timings: ev_dispatch_end.record()
         
-        # 4. NETWORK EXCHANGE (NVLink/NCCL Cross-GPU Send) --> See distributed.py
+        # execute forward network exchange via NCCL
         recv_tokens, recv_expert_ids, recv_counts, send_sqls, recv_sqls = all_to_all_forward(
             dispatched_x, dispatched_experts, rank_counts, self.world_size
         )
         
         if return_timings: ev_nccl_fw_end.record()
         
-        # 5. Local Compute (Process whatever we just received over the network)
-        # Shift global expert IDs down to their relative 0-indexed local index
+        # process tokens received over the network
+        # remap global expert IDs to their relative local 0-index
         local_expert_ids = recv_expert_ids - (self.rank * self.experts_per_rank)
         
-        # Perform memory sort for the local compute
+        # sort memory for the local computation block
         local_dispatched_x, local_expert_counts, local_sort_indices = pt_dispatch(
             recv_tokens, local_expert_ids, self.experts_per_rank
         )
@@ -102,18 +102,18 @@ class DistributedMoELayer(nn.Module):
                 expert_outputs[offset:offset+count] = expert_out
                 offset += count
                 
-        # Un-permute local memory dispatch buffer
+        # un-permute local memory dispatch buffer
         dummy_weights = torch.ones(recv_tokens.shape[0], 1, dtype=recv_tokens.dtype, device=recv_tokens.device)
         processed_recv_tokens = pt_combine(expert_outputs, local_sort_indices, dummy_weights)
         
         if return_timings: ev_expert_end.record()
         
-        # 6. NETWORK EXCHANGE (Reverse NVLink/NCCL Cross-GPU Send)
+        # execute reverse network exchange via NCCL
         returned_tokens = all_to_all_backward(processed_recv_tokens, send_sqls, recv_sqls)
         
         if return_timings: ev_nccl_bw_end.record()
         
-        # 7. Final Output Combine (Un-permute network sort locally and apply original weights)
+        # un-permute network sort locally and apply original weights
         combined_x = pt_combine(returned_tokens, network_sort_indices, routing_weights)
         
         if return_timings:
