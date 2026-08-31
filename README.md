@@ -8,7 +8,7 @@ Scaling Mixture-of-Experts (MoE) models exposes severe hardware bottlenecks. Whi
 
 ## Architecture: Expert Parallelism
 
-To exceed single-GPU VRAM limits, this implementation utilizes **Expert Parallelism**. Instead of duplicating all experts across the cluster, experts are divided among available GPUs. Tokens are routed locally and then exchanged over NVLink via PyTorch's `dist.all_to_all_single` collective operations before being processed by their target expert.
+This implementation demonstrates Expert Parallelism, the standard distributed architecture used in production to scale MoE models beyond single-GPU VRAM limits. Rather than duplicating all experts across the cluster, the model shards them across available GPUs. Tokens are routed locally and then exchanged over NVLink via PyTorch's dist.all_to_all_single collective operations before being processed by their physically assigned target expert.
 
 ```text
     [ Input Tokens ] -> [ Router ] -> [ Target Rank Sorting ]
