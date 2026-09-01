@@ -3,8 +3,8 @@ import torch
 
 @dataclass
 class MoEConfig:
-    hidden_dim: int = 1024
-    ffn_dim: int = 4096
+    hidden_dim: int = 1024  # token embedding size
+    ffn_dim: int = 4096 # hidden_dim of each expert
     num_experts: int = 8
     top_k: int = 2
     activation: str = "gelu" # "gelu" or "silu"

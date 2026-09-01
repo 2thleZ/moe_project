@@ -19,16 +19,12 @@ def pt_dispatch(x: torch.Tensor, selected_experts: torch.Tensor, num_experts: in
     # flatten selected experts
     flat_experts = selected_experts.view(-1)
     
-    # duplicate tokens for top_k using repeated indices
-    token_indices = torch.arange(num_tokens, device=x.device).unsqueeze(1).expand(-1, top_k).reshape(-1)
-    
-    # sort token indices based on flattened experts
-    # group token indices by assigned expert
+    # expert-wise sorting of tokens (tokens for expert0, tokens for expert1, ..., tokens for expertN)
     sort_indices = torch.argsort(flat_experts)
     
     # permute token inputs
-    sorted_token_indices = token_indices[sort_indices]
-    dispatched_x = x[sorted_token_indices]
+    sorted_token_indices = sort_indices // top_k
+    dispatched_x = x[sorted_token_indices] # primary performance penalty - Triton kernel addresses this
     
     # count tokens per expert
     expert_token_counts = torch.bincount(flat_experts, minlength=num_experts)
@@ -46,10 +42,10 @@ def pt_combine(expert_outputs: torch.Tensor, sort_indices: torch.Tensor, routing
         combined_x: [num_tokens, hidden_dim] back to original order
     """
     num_tokens, top_k = routing_weights.shape
-    hidden_dim = expert_outputs.shape[-1]
+    hidden_dim = expert_outputs.shape[-1] 
     
     # invert permutation to restore token indices
-    # apply argsort twice for inverse permutation
+    # applying argsort the second time for inverse permutation
     inverse_sort_indices = torch.argsort(sort_indices)
     
     # restore original flattened token order

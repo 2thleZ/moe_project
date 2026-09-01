@@ -6,13 +6,13 @@ def all_to_all_forward(send_tokens: torch.Tensor, send_expert_ids: torch.Tensor,
     exchanges tokens and routing assignments across multiple GPUs using NCCL.
     
     Args:
-        send_tokens: [num_dispatched, hidden_dim] locally sorted by destination rank
+        send_tokens: [num_dispatched, hidden_dim] locally sorted by destination rank (rank: integer ID of a GPU (0 to world_size-1))
         send_expert_ids: [num_dispatched, 1] locally sorted
         send_counts: [world_size] representing how many tokens this GPU wants to send to each rank
     """
     # exchange counts to pre-allocate receive buffers
     recv_counts = torch.empty_like(send_counts)
-    dist.all_to_all_single(recv_counts, send_counts)
+    dist.all_to_all_single(recv_counts, send_counts) 
     
     send_splits = send_counts.tolist()
     recv_splits = recv_counts.tolist()

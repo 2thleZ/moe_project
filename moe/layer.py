@@ -22,6 +22,7 @@ class MoELayer(nn.Module):
         
         # dispatch tokens to experts
         # dispatched_x: [num_tokens * top_k, hidden_dim]
+        # expert_counts: no. of tokens each expert gets
         dispatched_x, expert_counts, sort_indices = pt_dispatch(
             x, selected_experts, self.config.num_experts
         )

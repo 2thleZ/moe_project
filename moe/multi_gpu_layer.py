@@ -62,7 +62,7 @@ class DistributedMoELayer(nn.Module):
         if return_timings: ev_routing_end.record()
         
         # compute target ranks for network addressing
-        # example: if expert 5 is assigned to a layer with 4 experts per rank, it resolves to rank 1.
+        # e.g.: if expert 5 is assigned to a layer with 4 experts per rank, it resolves to rank 1.
         target_ranks = selected_experts // self.experts_per_rank
         
         # sort and group tokens by target rank to prepare for networking

@@ -9,7 +9,7 @@ def gather_kernel(
     sort_indices_ptr,    # *Pointer to sorted index array [num_tokens * top_k]
     hidden_dim: tl.constexpr,
     top_k: tl.constexpr,
-    BLOCK_SIZE: tl.constexpr,
+    BLOCK_SIZE: tl.constexpr, # macro (#define)
 ):
     """
     A custom Triton kernel to efficiently permute hidden states of tokens.
@@ -17,6 +17,7 @@ def gather_kernel(
     This kernel reads from `x` according to `sort_indices` and writes sequentially to `out`.
     """
     # program ID identifies the output token index
+    # blockIdx.x
     pid = tl.program_id(axis=0) 
     
     # load original token index from sorted indices array
@@ -26,12 +27,12 @@ def gather_kernel(
     token_idx = flat_idx // top_k
     
     # compute offsets for memory block
-    offsets = tl.arange(0, BLOCK_SIZE)
+    offsets = tl.arange(0, BLOCK_SIZE) # thread idx within a block
     mask = offsets < hidden_dim
     
     # fetch row from input tensor
     x_ptrs = x_ptr + (token_idx * hidden_dim) + offsets
-    row = tl.load(x_ptrs, mask=mask, other=0.0)
+    row = tl.load(x_ptrs, mask=mask, other=0.0) # coalesced global mem read
     
     # store row sequentially to output buffer
     out_ptrs = out_ptr + (pid * hidden_dim) + offsets

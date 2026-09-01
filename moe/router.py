@@ -26,7 +26,9 @@ class TopKRouter(nn.Module):
             selected_experts = experts.repeat(num_tokens // self.config.num_experts + 1)[:num_tokens].unsqueeze(1)
             if self.config.top_k > 1:
                 # pad remaining top-k slots with zero index
-                selected_experts = torch.cat([selected_experts, torch.zeros(num_tokens, self.config.top_k - 1, device=x.device, dtype=torch.long)], dim=1)
+                base = selected_experts # (num_tokens, 1)
+                padding = torch.arange(self.config.top_k, device=x.device).view(1, -1) # (1, top_k)
+                selected_experts = (base + padding) % self.config.num_experts # (num_tokens, top_k)
             routing_weights = torch.ones_like(selected_experts, dtype=x.dtype, device=x.device) / self.config.top_k
             return routing_weights, selected_experts
             
